@@ -13,6 +13,7 @@ public class Sudoku {
     private volatile int xPos = 0;
     private volatile int yPos = 0;
     private RunInspector ri;
+    private Timer t;
 
     public static void main(String[] args) {
         Sudoku s = new Sudoku(1);
@@ -40,7 +41,8 @@ public class Sudoku {
     private void generateSudoku() {
         sudoku = new int[SIZE][SIZE];
 
-        new Timer().scheduleAtFixedRate(ri, 1000, 1000);
+        t = new Timer();
+        t.scheduleAtFixedRate(ri, 1000, 1000);
         while (xPos < SIZE && yPos < SIZE) {
             steps++;
             if (sudoku[yPos][xPos] == SIZE) {
@@ -55,7 +57,8 @@ public class Sudoku {
                 }
             }
         }
-        ri.cancel();
+        t.purge();
+        t.cancel();
     }
 
     private boolean testRow(int xPos, int yPos) {
