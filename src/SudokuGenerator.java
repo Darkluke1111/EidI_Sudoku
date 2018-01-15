@@ -1,31 +1,32 @@
+import com.sun.istack.internal.Nullable;
+
 import java.util.Timer;
-import java.util.TimerTask;
 
 /**
  * Created by lg18 on 11.01.2018.
  */
-public class Sudoku {
+public class SudokuGenerator {
 
-    private volatile int[][] sudoku;
+    private int[][] sudoku;
     private final int SIZE;
     private final int BOX_SIZE;
     volatile long steps = 0;
-    private volatile int xPos = 0;
-    private volatile int yPos = 0;
-    private RunInspector ri;
-    private Timer t;
+    private int xPos = 0;
+    private int yPos = 0;
+    private GenerationVisualisation gv;
 
     public static void main(String[] args) {
-        Sudoku s = new Sudoku(1);
-        System.out.println("Sudoku in Step " + s.steps);
+        SudokuGenerator s = new SudokuGenerator(9, null);
+        s.generateSudoku();
+        System.out.println("SudokuGenerator in Step " + s.steps);
         System.out.println(s);
     }
 
-    public Sudoku() {
-        this(9);
+    public SudokuGenerator() {
+        this(9, null);
     }
 
-    public Sudoku(int size) {
+    public SudokuGenerator(int size, @Nullable GenerationVisualisation gv) {
         int i;
         for (i = 1; i * i < size; i++) ;
         if (i * i == size) {
@@ -34,37 +35,48 @@ public class Sudoku {
         } else {
             throw new IllegalArgumentException("Size must be a square but is " + size);
         }
-        ri = new RunInspector(this);
-        generateSudoku();
+        if(gv == null) {
+            this.gv = new DefaultGenerationVisualisation();
+        } else {
+            this.gv = gv;
+        }
     }
 
-    private void generateSudoku() {
+    public int[][] generateSudoku() {
         sudoku = new int[SIZE][SIZE];
 
-        t = new Timer();
-        t.scheduleAtFixedRate(ri, 1000, 1000);
         while (xPos < SIZE && yPos < SIZE) {
             steps++;
             if (sudoku[yPos][xPos] == SIZE) {
                 sudoku[yPos][xPos] = 0;
-                xPos = (xPos + SIZE - 1) % SIZE;
-                if (xPos == SIZE - 1) yPos--;
+                gv.visualizeDeleteCell(xPos,yPos,steps);
+                decrementPos();
             } else {
                 boolean possible = insertAndTest(xPos, yPos, sudoku[yPos][xPos] + 1);
                 if (possible) {
-                    xPos = (xPos + 1) % SIZE;
-                    if (xPos == 0) yPos++;
+                    incrementPos();
                 }
             }
         }
-        t.purge();
-        t.cancel();
+        return sudoku;
+    }
+
+    private void decrementPos() {
+        xPos = (xPos + SIZE - 1) % SIZE;
+        if (xPos == SIZE - 1) yPos--;
+    }
+
+    private void incrementPos() {
+        xPos = (xPos + 1) % SIZE;
+        if (xPos == 0) yPos++;
     }
 
     private boolean testRow(int xPos, int yPos) {
         if (sudoku[yPos][xPos] == 0) throw new IllegalArgumentException("Tested Cell is not filled with a value!");
         for (int i = 0; i < SIZE; i++) {
-            if (sudoku[yPos][xPos] == sudoku[yPos][i] && i != xPos) {
+            boolean possible = !(sudoku[yPos][xPos] == sudoku[yPos][i] && i != xPos);
+            gv.visualizeTest(xPos, yPos, i, yPos, possible);
+            if (!possible) {
                 return false;
             }
         }
@@ -74,7 +86,9 @@ public class Sudoku {
     private boolean testColumn(int xPos, int yPos) {
         if (sudoku[yPos][xPos] == 0) throw new IllegalArgumentException("Tested Cell is not filled with a value!");
         for (int i = 0; i < SIZE; i++) {
-            if (sudoku[yPos][xPos] == sudoku[i][xPos] && i != yPos) {
+            boolean possible = !(sudoku[yPos][xPos] == sudoku[i][xPos] && i != yPos);
+            gv.visualizeTest(xPos, yPos, xPos, i, possible);
+            if(!possible) {
                 return false;
             }
         }
@@ -87,7 +101,9 @@ public class Sudoku {
         int hNum = (xPos / BOX_SIZE) * BOX_SIZE;
         for (int i = vNum; i < vNum + BOX_SIZE; i++) {
             for (int j = hNum; j < hNum + BOX_SIZE; j++) {
-                if (sudoku[yPos][xPos] == sudoku[i][j] && (i != yPos || j != xPos)) {
+                boolean possible = !(sudoku[yPos][xPos] == sudoku[i][j] && (i != yPos || j != xPos));
+                gv.visualizeTest(xPos, yPos, j, i, possible);
+                if (!possible) {
                     return false;
                 }
             }
@@ -98,6 +114,7 @@ public class Sudoku {
     private boolean insertAndTest(int xPos, int yPos, int value) {
         //System.out.println("testing at " + xPos + " " + yPos + " with Value " + value);
         sudoku[yPos][xPos] = value;
+        gv.visualizeFillCell(xPos, yPos, sudoku[yPos][xPos], steps);
         //System.out.println(this.toString());
         boolean possible = testRow(xPos, yPos) &&
                         testColumn(xPos, yPos) &&
@@ -130,19 +147,5 @@ public class Sudoku {
             sb.append("\n");
         }
         return sb.toString();
-    }
-}
-
-class RunInspector extends TimerTask {
-    Sudoku sudoku;
-
-    public RunInspector(Sudoku s) {
-        this.sudoku = s;
-    }
-
-    @Override
-    public void run() {
-        System.out.println("Sudoku in Step " + sudoku.steps);
-        System.out.println(sudoku);
     }
 }
